@@ -82,11 +82,11 @@ async def call_api(url, data, proxy, token):
     random_user_agent = user_agent.random
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
         "User-Agent": random_user_agent,
+        "Content-Type": "application/json",
+        "Origin": "chrome-extension://lgmpfmgeabnnlemejacfljbmonaomfmm",
         "Accept": "application/json",
         "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://app.nodepay.ai",
     }
 
     try:
@@ -126,7 +126,8 @@ async def ping(proxy, token):
         data = {
             "id": account_info.get("uid"),
             "browser_id": browser_id,  
-            "timestamp": int(time.time())
+            "timestamp": int(time.time()),
+            "version": "2.2.7"
         }
 
         response = await call_api(DOMAIN_API["PING"], data, proxy, token)
