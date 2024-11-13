@@ -21,7 +21,7 @@ RETRIES = 60
 
 DOMAIN_API = {
     "SESSION": "http://18.136.143.169/api/auth/session",
-    "PING": "http://54.255.192.166/api/network/ping"
+    "PING": "http://52.17.10.116/api/network/ping"
 }
 
 CONNECTION_STATES = {
