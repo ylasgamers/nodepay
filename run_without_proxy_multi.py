@@ -187,6 +187,7 @@ async def main():
     tasks = []
     for token in all_tokens:
         tasks.append(asyncio.create_task(render_profile_info(token)))
+        time.sleep(3)
 
     # Wait for all tasks to complete
     await asyncio.gather(*tasks)
