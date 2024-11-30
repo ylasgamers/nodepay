@@ -9,6 +9,7 @@ git clone https://github.com/ylasgamers/nodepay.git
 cd nodepay
 ```
 - Please Choose :
+- Without Proxy [Direct] = run_without_proxy.py
 - With Manual Proxy = run_proxy.py
 - Auto Proxy = run_autoproxy.py
 - With Manual Proxy Multiple Account = run_proxy_multi.py
@@ -20,6 +21,7 @@ cd nodepay
 - With Manual Proxy Multiple Account = run_proxy_multi_bypass.py
 - Auto Proxy Multiple Account = run_autoproxy_multi_bypass.py
 ```
+python run_without_proxy.py
 python run_proxy.py
 python run_autoproxy.py
 python run_proxy_multi.py
@@ -29,6 +31,7 @@ python run_autoproxy_bypass.py
 python run_proxy_multi_bypass.py
 python run_autoproxy_multi_bypass.py
 OR
+python3 run_without_proxy.py
 python3 run_proxy.py
 python3 run_autoproxy.py
 python3 run_proxy_multi.py
