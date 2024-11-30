@@ -184,21 +184,12 @@ async def main():
         print("No tokens found in token_list.txt. Exiting the program.")
         exit()
 
-    while True:
-        for token in all_tokens:
-            tasks = {asyncio.create_task(render_profile_info(token)): token}
+    tasks = []
+    for token in all_tokens:
+        tasks.append(asyncio.create_task(render_profile_info(token)))
 
-            done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                if task.result() is None:
-                    logger.info("Replacing failed session.")
-            tasks.pop(task)
-
-            for token in all_tokens:
-                new_task = asyncio.create_task(render_profile_info(token))
-                tasks[new_task] = token
-            await asyncio.sleep(3)
-        await asyncio.sleep(10)
+    # Wait for all tasks to complete
+    await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
     show_warning()
