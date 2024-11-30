@@ -218,6 +218,7 @@ async def main():
     for token in all_tokens:
         for proxy in active_proxies:
             tasks.append(asyncio.create_task(render_profile_info(proxy, token)))
+            time.sleep(3)
 
     # Run all tasks concurrently
     await asyncio.gather(*tasks)
