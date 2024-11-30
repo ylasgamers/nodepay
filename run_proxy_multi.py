@@ -197,6 +197,32 @@ def is_valid_proxy(proxy):
 def remove_proxy_from_list(proxy):
     pass
 
+async def render_for_token(token, all_proxies):
+    active_proxies = [proxy for proxy in all_proxies if is_valid_proxy(proxy)][:100]
+    tasks = {asyncio.create_task(render_profile_info(proxy, token)): proxy for proxy in active_proxies}
+
+    done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
+    for task in done:
+        failed_proxy = tasks[task]
+        if task.result() is None:
+            logger.info(f"Removing and replacing failed proxy: {failed_proxy}")
+            active_proxies.remove(failed_proxy)
+            if all_proxies:
+                new_proxy = all_proxies.pop(0)
+                if is_valid_proxy(new_proxy):
+                    active_proxies.append(new_proxy)
+                    new_task = asyncio.create_task(render_profile_info(new_proxy, token))
+                    tasks[new_task] = new_proxy
+    tasks.pop(task)
+
+    # Continue for remaining proxies that were not part of the completed tasks
+    for proxy in set(active_proxies) - set(tasks.values()):
+        new_task = asyncio.create_task(render_profile_info(proxy, token))
+        tasks[new_task] = proxy
+
+    # Sleep briefly before continuing
+    await asyncio.sleep(3)
+
 async def main():
     all_proxies = load_proxies('local_proxies.txt')  # Load proxies from file
     all_tokens = load_tokens('token_list.txt')  # Load tokens from token list
@@ -205,34 +231,14 @@ async def main():
         print("No tokens found in token_list.txt. Exiting the program.")
         exit()
 
-    while True:
-        for token in all_tokens:
-            active_proxies = [
-                proxy for proxy in all_proxies if is_valid_proxy(proxy)][:100]
-            tasks = {asyncio.create_task(render_profile_info(
-                proxy, token)): proxy for proxy in active_proxies}
+    tasks = []  # Store tasks for all tokens
 
-            done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                failed_proxy = tasks[task]
-                if task.result() is None:
-                    logger.info(f"Removing and replacing failed proxy: {failed_proxy}")
-                    active_proxies.remove(failed_proxy)
-                    if all_proxies:
-                        new_proxy = all_proxies.pop(0)
-                        if is_valid_proxy(new_proxy):
-                            active_proxies.append(new_proxy)
-                            new_task = asyncio.create_task(
-                                render_profile_info(new_proxy, token))
-                            tasks[new_task] = new_proxy
-            tasks.pop(task)
+    # Create a task for each token to run them concurrently
+    for token in all_tokens:
+        tasks.append(asyncio.create_task(render_for_token(token, all_proxies)))
 
-            for proxy in set(active_proxies) - set(tasks.values()):
-                new_task = asyncio.create_task(
-                    render_profile_info(proxy, token))
-                tasks[new_task] = proxy
-            await asyncio.sleep(3)
-        await asyncio.sleep(10)
+    # Wait for all tasks to finish
+    await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
     show_warning()
