@@ -1,4 +1,3 @@
-# https://github.com/im-hanzou/nodepay-automate
 import requests
 import asyncio
 import aiohttp
@@ -16,6 +15,7 @@ def show_warning():
     else:
         print("Exiting...")
         exit()
+
 # Constants
 PING_INTERVAL = 60
 RETRIES = 60
@@ -34,7 +34,7 @@ CONNECTION_STATES = {
 status_connect = CONNECTION_STATES["NONE_CONNECTION"]
 browser_id = None
 account_info = {}
-last_ping_time = {}  
+last_ping_time = {}
 
 def uuidv4():
     return str(uuid.uuid4())
@@ -204,40 +204,21 @@ async def main():
                f.write(chunk)
     all_proxies = load_proxies('auto_proxies.txt') 
     all_tokens = load_tokens('token_list.txt')  # Load tokens from token list 
-    # Take token input directly from the user
 
     if not all_tokens:
         print("No tokens found in token_list.txt. Exiting the program.")
         exit()
 
-    while True:
-        for token in all_tokens:
-            active_proxies = [
-                proxy for proxy in all_proxies if is_valid_proxy(proxy)][:100]
-            tasks = {asyncio.create_task(render_profile_info(
-                proxy, token)): proxy for proxy in active_proxies}
+    active_proxies = [
+        proxy for proxy in all_proxies if is_valid_proxy(proxy)][:100]
+    tasks = []
 
-            done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                failed_proxy = tasks[task]
-                if task.result() is None:
-                    logger.info(f"Removing and replacing failed proxy: {failed_proxy}")
-                    active_proxies.remove(failed_proxy)
-                    if all_proxies:
-                        new_proxy = all_proxies.pop(0)
-                        if is_valid_proxy(new_proxy):
-                            active_proxies.append(new_proxy)
-                            new_task = asyncio.create_task(
-                                render_profile_info(new_proxy, token))
-                            tasks[new_task] = new_proxy
-                tasks.pop(task)
+    for token in all_tokens:
+        for proxy in active_proxies:
+            tasks.append(asyncio.create_task(render_profile_info(proxy, token)))
 
-            for proxy in set(active_proxies) - set(tasks.values()):
-                new_task = asyncio.create_task(
-                    render_profile_info(proxy, token))
-                tasks[new_task] = proxy
-            await asyncio.sleep(3)
-        await asyncio.sleep(10)  
+    # Run all tasks concurrently
+    await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
     show_warning()
