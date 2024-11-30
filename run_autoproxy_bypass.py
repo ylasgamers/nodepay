@@ -1,5 +1,5 @@
 # https://github.com/im-hanzou/nodepay-automate
-import requests
+import requests as reqs
 import asyncio
 import aiohttp
 import time
@@ -188,7 +188,7 @@ def remove_proxy_from_list(proxy):
     pass  
 
 async def main():
-    r = requests.get("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text", stream=True)
+    r = reqs.get("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text", stream=True)
     if r.status_code == 200:
        with open('auto_proxies.txt', 'wb') as f:
            for chunk in r:
