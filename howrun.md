@@ -12,6 +12,7 @@ cd nodepay
 - Without Proxy [Direct] = run_without_proxy.py
 - With Manual Proxy = run_proxy.py
 - Auto Proxy = run_autoproxy.py
+- Without Proxy [Direct] Multiple Account = run_without_proxy_multi.py
 - With Manual Proxy Multiple Account = run_proxy_multi.py
 - Auto Proxy Multiple Account = run_autoproxy_multi.py
 - With Original API :
@@ -28,6 +29,7 @@ python run_proxy_multi.py
 python run_autoproxy_multi.py
 python run_proxy_bypass.py
 python run_autoproxy_bypass.py
+python run_without_proxy_multi.py
 python run_proxy_multi_bypass.py
 python run_autoproxy_multi_bypass.py
 OR
@@ -38,6 +40,7 @@ python3 run_proxy_multi.py
 python3 run_autoproxy_multi.py
 python3 run_proxy_bypass.py
 python3 run_autoproxy_bypass.py
+python3 run_without_proxy_multi.py
 python3 run_proxy_multi_bypass.py
 python3 run_autoproxy_multi_bypass.py
 ```
