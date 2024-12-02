@@ -9,7 +9,7 @@ pip install asyncio
 pip install aiohttp
 pip install loguru
 pip install cloudscraper
-pip install curl_cffi
+pip install curl_cffi==0.8.0b7
 pip install fake_useragent
 ```
 - For Termux Android [Download Here](https://f-droid.org/repo/com.termux_1020.apk) [F-Droid Version]
@@ -28,7 +28,7 @@ pip install asyncio
 pip install aiohttp
 pip install loguru
 pip install cloudscraper
-pip install curl_cffi
+pip install curl_cffi==0.8.0b7
 pip install fake_useragent
 ```
 - For Ubuntu 18.04 | 20.04 | 22.04 (VPS)
@@ -45,6 +45,6 @@ pip install asyncio
 pip install aiohttp
 pip install loguru
 pip install cloudscraper
-pip install curl_cffi
+pip install curl_cffi==0.8.0b7
 pip install fake_useragent
 ```
