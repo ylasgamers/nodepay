@@ -80,15 +80,15 @@ async def call_api(url, data, token):
     random_user_agent = user_agent.random
     headers = {
         "Authorization": f"Bearer {token}",
-        "User-Agent": random_user_agent,
+        #"User-Agent": random_user_agent,
         "Content-Type": "application/json",
         "Origin": "chrome-extension://lgmpfmgeabnnlemejacfljbmonaomfmm",
-        "Accept": "application/json",
+        "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.5",
     }
 
     try:
-        response = requests.post(url, json=data, headers=headers, impersonate="chrome110", timeout=30)
+        response = requests.post(url, json=data, headers=headers, impersonate="chrome131", timeout=30)
 
         response.raise_for_status()
         return valid_resp(response.json())
