@@ -83,7 +83,7 @@ async def call_api(url, data, proxy, token):
     random_user_agent = user_agent.random
     headers = {
         "Authorization": f"Bearer {token}",
-        "User-Agent": random_user_agent,
+        #"User-Agent": random_user_agent,
         "Content-Type": "application/json",
         "Origin": "chrome-extension://lgmpfmgeabnnlemejacfljbmonaomfmm",
         "Accept": "*/*",
