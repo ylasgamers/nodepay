@@ -86,12 +86,12 @@ async def call_api(url, data, proxy, token):
         "User-Agent": random_user_agent,
         "Content-Type": "application/json",
         "Origin": "chrome-extension://lgmpfmgeabnnlemejacfljbmonaomfmm",
-        "Accept": "application/json",
+        "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.5",
     }
 
     try:
-        response = requests.post(url, json=data, headers=headers, impersonate="chrome110", proxies={
+        response = requests.post(url, json=data, headers=headers, impersonate="chrome131", proxies={
                                 "http": proxy, "https": proxy}, timeout=30)
 
         response.raise_for_status()
