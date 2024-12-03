@@ -1,0 +1,1 @@
+- For Android Termux Version
