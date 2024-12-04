@@ -20,7 +20,7 @@ def dailyclaim():
                     "mission_id":"1"
                 }
 
-                response = requests.post(url, headers=headers, json=data, impersonate="chrome131")
+                response = requests.post(url, headers=headers, json=data, impersonate="safari15_5")
                 is_success = response.json().get('success')
                 if is_success == True:
                     print(f'Claim Reward Success!')
