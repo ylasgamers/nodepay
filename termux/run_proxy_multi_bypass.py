@@ -90,7 +90,7 @@ async def call_api(url, data, proxy, token):
     }
 
     try:
-        response = requests.post(url, json=data, headers=headers, impersonate="safari17_0", proxies={
+        response = requests.post(url, json=data, headers=headers, impersonate="safari15_5", proxies={
                                 "http": proxy, "https": proxy}, timeout=30)
 
         response.raise_for_status()
