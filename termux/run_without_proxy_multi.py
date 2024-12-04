@@ -88,7 +88,7 @@ async def call_api(url, data, token):
     }
 
     try:
-        response = requests.post(url, json=data, headers=headers, impersonate="chrome110", timeout=30)
+        response = requests.post(url, json=data, headers=headers, impersonate="safari17_0", timeout=30)
 
         response.raise_for_status()
         return valid_resp(response.json())
