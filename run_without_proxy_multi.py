@@ -1,6 +1,7 @@
 import asyncio
 import time
 import uuid
+import cloudscraper
 #from curl_cffi import requests
 from loguru import logger
 from fake_useragent import UserAgent
