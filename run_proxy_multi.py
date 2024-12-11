@@ -238,7 +238,7 @@ async def main():
 
 if __name__ == '__main__':
     show_warning()
-    print("\nAlright, we here! Insert your nodepay token that you got from the tutorial.")
+    print("\nAlright, we here! Loading tokens from token_list.txt.")
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
