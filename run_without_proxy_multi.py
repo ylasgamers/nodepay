@@ -1,7 +1,7 @@
 import asyncio
 import time
 import uuid
-from curl_cffi import requests
+#from curl_cffi import requests
 from loguru import logger
 from fake_useragent import UserAgent
 
@@ -20,7 +20,7 @@ RETRIES = 60
 
 DOMAIN_API = {
     "SESSION": "http://api.nodepay.ai/api/auth/session",
-    "PING": "https://nw.nodepay.org/api/network/ping"
+    "PING": "http://nw.nodepay.ai/api/network/ping"
 }
 
 CONNECTION_STATES = {
@@ -80,7 +80,7 @@ async def call_api(url, data, token):
     random_user_agent = user_agent.random
     headers = {
         "Authorization": f"Bearer {token}",
-        #"User-Agent": random_user_agent,
+        "User-Agent": random_user_agent,
         "Content-Type": "application/json",
         "Origin": "chrome-extension://lgmpfmgeabnnlemejacfljbmonaomfmm",
         "Accept": "*/*",
@@ -88,7 +88,10 @@ async def call_api(url, data, token):
     }
 
     try:
-        response = requests.post(url, json=data, headers=headers, impersonate="safari15_5", timeout=30)
+        scraper = cloudscraper.create_scraper()
+
+        response = scraper.post(url, json=data, headers=headers, timeout=30)
+        #response = requests.post(url, json=data, headers=headers, impersonate="safari15_5", timeout=30)
 
         response.raise_for_status()
         return valid_resp(response.json())
