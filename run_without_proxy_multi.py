@@ -2,18 +2,9 @@ import asyncio
 import time
 import uuid
 import cloudscraper
-#from curl_cffi import requests
 from loguru import logger
 from fake_useragent import UserAgent
-
-def show_warning():
-    confirm = input("By using this tool means you understand the risks. do it at your own risk! \nPress Enter to continue or Ctrl+C to cancel... ")
-
-    if confirm.strip() == "":
-        print("Continuing...")
-    else:
-        print("Exiting...")
-        exit()
+#from curl_cffi import requests
 
 # Constants
 PING_INTERVAL = 60
@@ -21,7 +12,7 @@ RETRIES = 60
 
 DOMAIN_API = {
     "SESSION": "http://api.nodepay.ai/api/auth/session",
-    "PING": "http://nw.nodepay.ai/api/network/ping"
+    "PING": "https://nw.nodepay.ai/api/network/ping"
 }
 
 CONNECTION_STATES = {
@@ -70,11 +61,10 @@ async def render_profile_info(token):
             "sent 1011 (internal error) keepalive ping timeout; no close frame received",
             "500 Internal Server Error"
         ]):
-            logger.info("Removing error session and retrying")
-            return None
+            logger.info("Removing error account info due to invalid response.")
+            handle_logout()
         else:
             logger.error(f"Connection error: {e}")
-            return None
 
 async def call_api(url, data, token):
     user_agent = UserAgent(os=['windows', 'macos', 'linux'], browsers='chrome')
@@ -84,7 +74,7 @@ async def call_api(url, data, token):
         "User-Agent": random_user_agent,
         "Content-Type": "application/json",
         "Origin": "chrome-extension://lgmpfmgeabnnlemejacfljbmonaomfmm",
-        "Accept": "*/*",
+        "Accept": "application/json",
         "Accept-Language": "en-US,en;q=0.5",
     }
 
@@ -92,8 +82,7 @@ async def call_api(url, data, token):
         scraper = cloudscraper.create_scraper()
 
         response = scraper.post(url, json=data, headers=headers, timeout=30)
-        #response = requests.post(url, json=data, headers=headers, impersonate="safari15_5", timeout=30)
-
+        #response = requests.post(url, json=data, headers=headers, impersonate="chrome110", timeout=30)
         response.raise_for_status()
         return valid_resp(response.json())
     except Exception as e:
@@ -106,7 +95,7 @@ async def start_ping(token):
             await ping(token)
             await asyncio.sleep(PING_INTERVAL)
     except asyncio.CancelledError:
-        logger.info("Ping task was cancelled")
+        logger.info(f"Ping task was cancelled")
     except Exception as e:
         logger.error(f"Error in start_ping: {e}")
 
@@ -115,11 +104,11 @@ async def ping(token):
 
     current_time = time.time()
 
-    if (current_time - last_ping_time.get(token, 0)) < PING_INTERVAL:
-        logger.info(f"Skipping ping, not enough time elapsed")
+    if "last_ping_time" in last_ping_time and (current_time - last_ping_time["last_ping_time"]) < PING_INTERVAL:
+        logger.info("Skipping ping, not enough time elapsed")
         return
 
-    last_ping_time[token] = current_time
+    last_ping_time["last_ping_time"] = current_time
 
     try:
         data = {
@@ -131,7 +120,7 @@ async def ping(token):
 
         response = await call_api(DOMAIN_API["PING"], data, token)
         if response["code"] == 0:
-            logger.info(f"Ping successful: {response} with id: {account_info.get('uid')}")
+            logger.info(f"Ping successful: {response} with id : {account_info.get('uid')}")
             RETRIES = 0
             status_connect = CONNECTION_STATES["CONNECTED"]
         else:
@@ -156,49 +145,43 @@ def handle_logout():
 
     status_connect = CONNECTION_STATES["NONE_CONNECTION"]
     account_info = {}
-    save_status(None)
-    logger.info("Logged out and cleared session info")
-
-def load_tokens(token_file):
-    try:
-        with open(token_file, 'r') as file:
-            tokens = file.read().splitlines()
-        return tokens
-    except Exception as e:
-        logger.error(f"Failed to load tokens: {e}")
-        raise SystemExit("Exiting due to failure in loading tokens")
-
-def save_status(status):
-    pass
+    logger.info("Logged out and cleared session info.")
 
 def save_session_info(data):
-    data_to_save = {
-        "uid": data.get("uid"),
-        "browser_id": browser_id
-    }
+    # Saving session info (this could be to a file or a database)
     pass
 
 def load_session_info():
-    return {}
+    return {}  # Return an empty dictionary if no session is saved
+
+async def process_token(token):
+    await render_profile_info(token)
+    await asyncio.sleep(3)
 
 async def main():
-    all_tokens = load_tokens('token_list.txt')  # Load tokens from file
+    # Load tokens from token_list.txt
+    try:
+        with open("token_list.txt", "r") as file:
+            tokens = [line.strip() for line in file.readlines()]
+    except FileNotFoundError:
+        print("token_list.txt file not found. Please ensure the file exists.")
+        return
 
-    if not all_tokens:
-        print("No tokens found in token_list.txt. Exiting the program.")
-        exit()
+    if not tokens:
+        print("No tokens found in the file. Exiting.")
+        return
 
-    tasks = []
-    for token in all_tokens:
-        tasks.append(asyncio.create_task(render_profile_info(token)))
-        time.sleep(3)
+    # Create tasks for each token
+    tasks = [asyncio.create_task(process_token(token)) for token in tokens]
 
-    # Wait for all tasks to complete
-    await asyncio.gather(*tasks)
+    # Run all tasks concurrently
+    try:
+        await asyncio.gather(*tasks)
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Program terminated by user.")
 
 if __name__ == '__main__':
-    show_warning()
-    print("\nAlright, we here! Running the script with tokens from token_list.txt.")
+    print("\nAlright, we here! Loading tokens from token_list.txt.")
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
