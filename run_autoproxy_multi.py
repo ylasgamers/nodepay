@@ -1,20 +1,10 @@
-import requests
 import asyncio
-import aiohttp
 import time
 import uuid
 import cloudscraper
 from loguru import logger
 from fake_useragent import UserAgent
-
-def show_warning():
-    confirm = input("By using this tool means you understand the risks. do it at your own risk! \nPress Enter to continue or Ctrl+C to cancel... ")
-
-    if confirm.strip() == "":
-        print("Continuing...")
-    else:
-        print("Exiting...")
-        exit()
+import aiohttp
 
 # Constants
 PING_INTERVAL = 60
@@ -34,7 +24,17 @@ CONNECTION_STATES = {
 status_connect = CONNECTION_STATES["NONE_CONNECTION"]
 browser_id = None
 account_info = {}
-last_ping_time = {}  
+last_ping_time = {}  # Track ping time per token
+proxies = []  # List of proxies loaded from API
+
+def show_warning():
+    confirm = input("By using this tool means you understand the risks. do it at your own risk! \nPress Enter to continue or Ctrl+C to cancel... ")
+
+    if confirm.strip() == "":
+        print("Continuing...")
+    else:
+        print("Exiting...")
+        exit()
 
 def uuidv4():
     return str(uuid.uuid4())
@@ -43,6 +43,18 @@ def valid_resp(resp):
     if not resp or "code" not in resp or resp["code"] < 0:
         raise ValueError("Invalid response")
     return resp
+
+async def fetch_proxies():
+    try:
+        # Fetch proxy list from the provided URL
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text') as response:
+                proxy_list = await response.text()
+                proxies = proxy_list.splitlines()
+                return proxies
+    except Exception as e:
+        logger.error(f"Failed to fetch proxies from URL: {e}")
+        raise SystemExit("Exiting due to failure in loading proxies")
 
 async def render_profile_info(proxy, token):
     global browser_id, account_info
@@ -94,12 +106,12 @@ async def call_api(url, data, proxy, token):
         scraper = cloudscraper.create_scraper()
 
         response = scraper.post(url, json=data, headers=headers, proxies={
-                                "http": proxy, "https": proxy}, timeout=30)
+            "http": proxy, "https": proxy}, timeout=30)
 
         response.raise_for_status()
         return valid_resp(response.json())
     except Exception as e:
-        logger.error(f"Error during API call: {e}")
+        logger.error(f"Error during API call with proxy {proxy}: {e}")
         raise ValueError(f"Failed API call to {url}")
 
 async def start_ping(proxy, token):
@@ -117,29 +129,30 @@ async def ping(proxy, token):
 
     current_time = time.time()
 
-    if proxy in last_ping_time and (current_time - last_ping_time[proxy]) < PING_INTERVAL:
-        logger.info(f"Skipping ping for proxy { proxy}, not enough time elapsed")
+    # Track separate last ping time for each token
+    if token in last_ping_time and (current_time - last_ping_time[token]) < PING_INTERVAL:
+        logger.info(f"Skipping ping for token {token}, not enough time elapsed")
         return
 
-    last_ping_time[proxy] = current_time
+    last_ping_time[token] = current_time  # Update the last ping time for this token
 
     try:
         data = {
             "id": account_info.get("uid"),
-            "browser_id": browser_id,  
+            "browser_id": browser_id,
             "timestamp": int(time.time()),
             "version": "2.2.7"
         }
 
         response = await call_api(DOMAIN_API["PING"], data, proxy, token)
         if response["code"] == 0:
-            logger.info(f"Ping successful via proxy {proxy}: {response} with id : {account_info.get('uid')}")
+            logger.info(f"Ping successful for token {token} via proxy {proxy}: {response}")
             RETRIES = 0
             status_connect = CONNECTION_STATES["CONNECTED"]
         else:
             handle_ping_fail(proxy, response)
     except Exception as e:
-        logger.error(f"Ping failed via proxy {proxy}: {e}")
+        logger.error(f"Ping failed for token {token} via proxy {proxy}: {e}")
         handle_ping_fail(proxy, None)
 
 def handle_ping_fail(proxy, response):
@@ -161,93 +174,66 @@ def handle_logout(proxy):
     save_status(proxy, None)
     logger.info(f"Logged out and cleared session info for proxy {proxy}")
 
-def load_proxies(proxy_file):
-    try:
-        with open(proxy_file, 'r') as file:
-            proxies = file.read().splitlines()
-        return proxies
-    except Exception as e:
-        logger.error(f"Failed to load proxies: {e}")
-        raise SystemExit("Exiting due to failure in loading proxies")
-
 def save_status(proxy, status):
     pass  
 
 def save_session_info(proxy, data):
     data_to_save = {
         "uid": data.get("uid"),
-        "browser_id": browser_id  
+        "browser_id": browser_id
     }
     pass
 
 def load_session_info(proxy):
-    return {}  
+    return {}  # Placeholder for loading session info
 
-def is_valid_proxy(proxy):
-    return True  
+async def run_with_token(token):
+    tasks = {}
 
-def remove_proxy_from_list(proxy):
-    pass  
-
-async def main():
-    # Load proxies
-    r = requests.get("https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text", stream=True)
-    if r.status_code == 200:
-       with open('auto_proxies.txt', 'wb') as f:
-           for chunk in r:
-               f.write(chunk)
-    all_proxies = load_proxies('auto_proxies.txt')  
-
-    # Load tokens from token_list.txt
-    try:
-        with open('token_list.txt', 'r') as file:
-            tokens = [line.strip() for line in file.readlines()]
-    except FileNotFoundError:
-        logger.error("token_list.txt not found.")
-        exit()
-
-    if not tokens:
-        print("No tokens found in token_list.txt. Exiting the program.")
-        exit()
-
-    # Process each token concurrently
-    tasks = []
-    for token in tokens:
-        active_proxies = [
-            proxy for proxy in all_proxies if is_valid_proxy(proxy)][:100]
-        task = asyncio.create_task(process_token(token, active_proxies))
-        tasks.append(task)
-
-    await asyncio.gather(*tasks)
-
-async def process_token(token, active_proxies):
-    tasks = {asyncio.create_task(render_profile_info(proxy, token)): proxy for proxy in active_proxies}
+    # Choose a proxy and run with it for each token
+    proxy = proxies.pop(0) if proxies else None
+    tasks[asyncio.create_task(render_profile_info(proxy, token))] = token
 
     done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
     for task in done:
-        failed_proxy = tasks[task]
+        failed_token = tasks[task]
         if task.result() is None:
-            logger.info(f"Removing and replacing failed proxy: {failed_proxy}")
-            active_proxies.remove(failed_proxy)
-            if all_proxies:
-                new_proxy = all_proxies.pop(0)
-                if is_valid_proxy(new_proxy):
-                    active_proxies.append(new_proxy)
-                    new_task = asyncio.create_task(
-                        render_profile_info(new_proxy, token))
-                    tasks[new_task] = new_proxy
+            logger.info(f"Failed for token {failed_token}, retrying with new proxy...")
+            if proxies:
+                proxy = proxies.pop(0)
+                new_task = asyncio.create_task(render_profile_info(proxy, failed_token))
+                tasks[new_task] = failed_token
         tasks.pop(task)
 
-    for proxy in set(active_proxies) - set(tasks.values()):
-        new_task = asyncio.create_task(
-            render_profile_info(proxy, token))
-        tasks[new_task] = proxy
+    await asyncio.sleep(10)
 
-    await asyncio.sleep(3)
+async def main():
+    # Load tokens from the file
+    try:
+        with open('token_list.txt', 'r') as file:
+            tokens = file.read().splitlines()
+    except Exception as e:
+        logger.error(f"Error reading token list: {e}")
+        return
+
+    if not tokens:
+        print("No tokens found. Exiting.")
+        return
+
+    # Fetch proxies from the URL dynamically
+    global proxies
+    proxies = await fetch_proxies()
+
+    tasks = []
+    for token in tokens:
+        tasks.append(run_with_token(token))
+
+    # Run all tasks concurrently
+    await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
     show_warning()
-    print("\nAlright, we here! Loading tokens from token_list.txt.")
+    print("\nAlright, we here! The tool will now use multiple tokens and proxies fetched from URL.")
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
