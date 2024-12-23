@@ -6,14 +6,6 @@ import cloudscraper
 from loguru import logger
 from fake_useragent import UserAgent
 
-def show_warning():
-    confirm = input("By using this tool means you understand the risks. do it at your own risk! \nPress Enter to continue or Ctrl+C to cancel... ")
-    if confirm.strip() == "":
-        print("Continuing...")
-    else:
-        print("Exiting...")
-        exit()
-
 # Constants
 PING_INTERVAL = 60
 RETRIES = 60
@@ -32,7 +24,16 @@ CONNECTION_STATES = {
 status_connect = CONNECTION_STATES["NONE_CONNECTION"]
 browser_id = None
 account_info = {}
-last_ping_time = {}
+last_ping_time = {}  
+
+def show_warning():
+    confirm = input("By using this tool means you understand the risks. do it at your own risk! \nPress Enter to continue or Ctrl+C to cancel... ")
+
+    if confirm.strip() == "":
+        print("Continuing...")
+    else:
+        print("Exiting...")
+        exit()
 
 def uuidv4():
     return str(uuid.uuid4())
@@ -41,7 +42,7 @@ def valid_resp(resp):
     if not resp or "code" not in resp or resp["code"] < 0:
         raise ValueError("Invalid response")
     return resp
-    
+
 async def render_profile_info(proxy, token):
     global browser_id, account_info
 
@@ -91,7 +92,7 @@ async def call_api(url, data, proxy, token):
     try:
         scraper = cloudscraper.create_scraper()
 
-        response = scraper.post(url, json=data, headers=headers, proxies={
+        response = scraper.post(url, json=data, headers=headers, proxies={ 
                                 "http": proxy, "https": proxy}, timeout=30)
 
         response.raise_for_status()
@@ -131,7 +132,7 @@ async def ping(proxy, token):
 
         response = await call_api(DOMAIN_API["PING"], data, proxy, token)
         if response["code"] == 0:
-            logger.info(f"Ping successful via proxy {proxy}: {response} with id : {account_info.get('uid')}")
+            logger.info(f"Ping successful with id {account_info.get('uid')} via proxy {proxy}: {response}")
             RETRIES = 0
             status_connect = CONNECTION_STATES["CONNECTED"]
         else:
@@ -187,58 +188,60 @@ def is_valid_proxy(proxy):
 def remove_proxy_from_list(proxy):
     pass  
 
+async def run_with_token(token, all_proxies):
+    tasks = {}
+    active_proxies = [
+        proxy for proxy in all_proxies if is_valid_proxy(proxy)
+    ][:100]
+
+    for proxy in active_proxies:
+        tasks[asyncio.create_task(render_profile_info(proxy, token))] = proxy
+
+    done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
+    for task in done:
+        failed_proxy = tasks[task]
+        if task.result() is None:
+            logger.info(f"Removing and replacing failed proxy: {failed_proxy}")
+            active_proxies.remove(failed_proxy)
+            if all_proxies:
+                new_proxy = all_proxies.pop(0)
+                if is_valid_proxy(new_proxy):
+                    active_proxies.append(new_proxy)
+                    new_task = asyncio.create_task(render_profile_info(new_proxy, token))
+                    tasks[new_task] = new_proxy
+        tasks.pop(task)
+
+    for proxy in set(active_proxies) - set(tasks.values()):
+        new_task = asyncio.create_task(render_profile_info(proxy, token))
+        tasks[new_task] = proxy
+
+    await asyncio.sleep(10)
+
 async def main():
-    all_proxies = load_proxies('local_proxies.txt')  # Load proxies from file
-    all_tokens = []  # List of tokens
+    all_proxies = load_proxies('local_proxies.txt')
+
+    # Load tokens from the file
     try:
-        with open("token_list.txt", "r") as token_file:
-            all_tokens = token_file.read().splitlines()
+        with open('token_list.txt', 'r') as file:
+            tokens = file.read().splitlines()
     except Exception as e:
-        logger.error(f"Failed to load tokens: {e}")
-        raise SystemExit("Exiting due to failure in loading tokens")
+        logger.error(f"Error reading token list: {e}")
+        return
 
-    if not all_tokens:
-        logger.error("No tokens available. Exiting the program.")
-        exit()
+    if not tokens:
+        print("No tokens found. Exiting.")
+        return
 
-    tasks = []  # List to store all tasks
+    tasks = []
+    for token in tokens:
+        tasks.append(run_with_token(token, all_proxies))
 
-    # For each token, we will spawn a task to handle it
-    for token in all_tokens:
-        if not token.strip():
-            continue
-
-        #logger.info(f"Starting tasks for token: {token}")
-
-        active_proxies = [
-            proxy for proxy in all_proxies if is_valid_proxy(proxy)][:100]
-        token_tasks = {asyncio.create_task(render_profile_info(
-            proxy, token)): proxy for proxy in active_proxies}
-
-        tasks.extend(token_tasks.keys())
-
-        for task in token_tasks.keys():
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                failed_proxy = token_tasks[task]
-                if task.result() is None:
-                    logger.info(f"Removing and replacing failed proxy: {failed_proxy}")
-                    active_proxies.remove(failed_proxy)
-                    if all_proxies:
-                        new_proxy = all_proxies.pop(0)
-                        if is_valid_proxy(new_proxy):
-                            active_proxies.append(new_proxy)
-                            new_task = asyncio.create_task(
-                                render_profile_info(new_proxy, token))
-                            tasks.append(new_task)
-
-            tasks = list(pending)
-
-        await asyncio.sleep(3)
+    # Run all tasks concurrently
+    await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
     show_warning()
-    print("\nAlright, we here! Loading tokens from token_list.txt.")
+    print("\nAlright, we here! The tool will now use multiple tokens.")
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
