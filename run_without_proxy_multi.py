@@ -4,7 +4,6 @@ import uuid
 import cloudscraper
 from loguru import logger
 from fake_useragent import UserAgent
-#from curl_cffi import requests
 
 # Constants
 PING_INTERVAL = 60
@@ -24,11 +23,20 @@ CONNECTION_STATES = {
 status_connect = CONNECTION_STATES["NONE_CONNECTION"]
 browser_id = None
 account_info = {}
-last_ping_time = {}
+last_ping_time = {}  # Store ping times for each token
+
+def show_warning():
+    confirm = input("By using this tool means you understand the risks. do it at your own risk! \nPress Enter to continue or Ctrl+C to cancel... ")
+
+    if confirm.strip() == "":
+        print("Continuing...")
+    else:
+        print("Exiting...")
+        exit()
 
 def uuidv4():
     return str(uuid.uuid4())
-
+    
 def valid_resp(resp):
     if not resp or "code" not in resp or resp["code"] < 0:
         raise ValueError("Invalid response")
@@ -61,10 +69,11 @@ async def render_profile_info(token):
             "sent 1011 (internal error) keepalive ping timeout; no close frame received",
             "500 Internal Server Error"
         ]):
-            logger.info("Removing error account info due to invalid response.")
-            handle_logout()
+            logger.info(f"Encountered an error, retrying...")
+            return None
         else:
             logger.error(f"Connection error: {e}")
+            return None
 
 async def call_api(url, data, token):
     user_agent = UserAgent(os=['windows', 'macos', 'linux'], browsers='chrome')
@@ -82,7 +91,7 @@ async def call_api(url, data, token):
         scraper = cloudscraper.create_scraper()
 
         response = scraper.post(url, json=data, headers=headers, timeout=30)
-        #response = requests.post(url, json=data, headers=headers, impersonate="chrome110", timeout=30)
+
         response.raise_for_status()
         return valid_resp(response.json())
     except Exception as e:
@@ -98,35 +107,36 @@ async def start_ping(token):
         logger.info(f"Ping task was cancelled")
     except Exception as e:
         logger.error(f"Error in start_ping: {e}")
-
+        
 async def ping(token):
     global last_ping_time, RETRIES, status_connect
 
     current_time = time.time()
 
-    if "last_ping_time" in last_ping_time and (current_time - last_ping_time["last_ping_time"]) < PING_INTERVAL:
-        logger.info("Skipping ping, not enough time elapsed")
+    # Check if the token has a separate last ping time and if enough time has passed
+    if token in last_ping_time and (current_time - last_ping_time[token]) < PING_INTERVAL:
+        logger.info(f"Skipping ping for token {token}, not enough time elapsed")
         return
 
-    last_ping_time["last_ping_time"] = current_time
+    last_ping_time[token] = current_time  # Update the last ping time for this token
 
     try:
         data = {
             "id": account_info.get("uid"),
-            "browser_id": browser_id,
+            "browser_id": browser_id,  
             "timestamp": int(time.time()),
             "version": "2.2.7"
         }
 
         response = await call_api(DOMAIN_API["PING"], data, token)
         if response["code"] == 0:
-            logger.info(f"Ping successful: {response} with id : {account_info.get('uid')}")
+            logger.info(f"Ping successful for token {token}: {response}")
             RETRIES = 0
             status_connect = CONNECTION_STATES["CONNECTED"]
         else:
             handle_ping_fail(response)
     except Exception as e:
-        logger.error(f"Ping failed: {e}")
+        logger.error(f"Ping failed for token {token}: {e}")
         handle_ping_fail(None)
 
 def handle_ping_fail(response):
@@ -145,43 +155,55 @@ def handle_logout():
 
     status_connect = CONNECTION_STATES["NONE_CONNECTION"]
     account_info = {}
-    logger.info("Logged out and cleared session info.")
+    logger.info(f"Logged out and cleared session info")
 
 def save_session_info(data):
-    # Saving session info (this could be to a file or a database)
+    data_to_save = {
+        "uid": data.get("uid"),
+        "browser_id": browser_id  
+    }
     pass
 
 def load_session_info():
-    return {}  # Return an empty dictionary if no session is saved
+    return {}  # Placeholder for loading session info
 
-async def process_token(token):
-    await render_profile_info(token)
-    await asyncio.sleep(3)
+async def run_with_token(token):
+    tasks = {}
+
+    tasks[asyncio.create_task(render_profile_info(token))] = token
+
+    done, pending = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
+    for task in done:
+        failed_token = tasks[task]
+        if task.result() is None:
+            logger.info(f"Failed for token {failed_token}, retrying...")
+        tasks.pop(task)
+
+    await asyncio.sleep(10)
 
 async def main():
-    # Load tokens from token_list.txt
+    # Load tokens from the file
     try:
-        with open("token_list.txt", "r") as file:
-            tokens = [line.strip() for line in file.readlines()]
-    except FileNotFoundError:
-        print("token_list.txt file not found. Please ensure the file exists.")
+        with open('token_list.txt', 'r') as file:
+            tokens = file.read().splitlines()
+    except Exception as e:
+        logger.error(f"Error reading token list: {e}")
         return
 
     if not tokens:
-        print("No tokens found in the file. Exiting.")
+        print("No tokens found. Exiting.")
         return
 
-    # Create tasks for each token
-    tasks = [asyncio.create_task(process_token(token)) for token in tokens]
+    tasks = []
+    for token in tokens:
+        tasks.append(run_with_token(token))
 
     # Run all tasks concurrently
-    try:
-        await asyncio.gather(*tasks)
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Program terminated by user.")
+    await asyncio.gather(*tasks)
 
 if __name__ == '__main__':
-    print("\nAlright, we here! Loading tokens from token_list.txt.")
+    show_warning()
+    print("\nAlright, we here! The tool will now use multiple tokens without proxies.")
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
