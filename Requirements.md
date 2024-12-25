@@ -10,7 +10,7 @@ pip install aiohttp
 pip install loguru
 pip install cloudscraper
 pip install curl_cffi
-pip install fake_useragent
+pip install fake_useragent==1.5.1
 ```
 - For Termux Android [Download Here](https://f-droid.org/repo/com.termux_1020.apk) [F-Droid Version]
 - For Termux Please Download This [libcurl-impersonate-chrome.so.4](https://github.com/ylasgamers/nodepay/raw/refs/heads/main/libcurl-impersonate-chrome.so.4) To Fix Error
@@ -35,7 +35,7 @@ pip install aiohttp
 pip install loguru
 pip install cloudscraper
 pip install curl_cffi
-pip install fake_useragent
+pip install fake_useragent==1.5.1
 ```
 - For Ubuntu 18.04 | 20.04 | 22.04 (VPS)
 ```
@@ -52,5 +52,5 @@ pip install aiohttp
 pip install loguru
 pip install cloudscraper
 pip install curl_cffi
-pip install fake_useragent
+pip install fake_useragent==1.5.1
 ```
